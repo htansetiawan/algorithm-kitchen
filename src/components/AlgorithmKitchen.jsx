@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { ChefHat, ArrowUpDown, Search, GitBranch, Shuffle, Target, Zap, Building2 } from 'lucide-react';
+import { ChefHat, ArrowUpDown, Search, GitBranch, Shuffle, Target, Zap, Building2, Brain } from 'lucide-react';
 import SortingVisualizer from './SortingVisualizer';
 import InstagramNewsFeed from './InstagramNewsFeed';
 import TinyUrlSystem from './TinyUrlSystem';
 import DocumentPartitioningSystem from './DocumentPartitioningSystem';
+import TransformerArchitecture from './TransformerArchitecture';
 
 const AlgorithmKitchen = () => {
   const [selectedCategory, setSelectedCategory] = useState('sorting');
@@ -32,6 +33,18 @@ const AlgorithmKitchen = () => {
         { id: 'instagram-news-feed', name: 'Instagram News Feed', difficulty: 'Hard' },
         { id: 'tinyurl-system', name: 'TinyURL System', difficulty: 'Hard' },
         { id: 'document-partitioning', name: 'Document Partitioning & Consistent Hashing', difficulty: 'Hard' }
+      ]
+    },
+    {
+      id: 'ai-ml',
+      name: 'AI & Machine Learning',
+      icon: Brain,
+      description: 'Understand the intelligence behind modern AI systems',
+      algorithms: [
+        { id: 'transformer-architecture', name: 'Transformer Architecture', difficulty: 'Hard' },
+        { id: 'neural-networks', name: 'Neural Networks', difficulty: 'Medium' },
+        { id: 'cnn-fundamentals', name: 'Convolutional Neural Networks', difficulty: 'Hard' },
+        { id: 'rnn-lstm', name: 'RNNs & LSTMs', difficulty: 'Hard' }
       ]
     },
     {
@@ -133,6 +146,30 @@ const AlgorithmKitchen = () => {
       return <InstagramNewsFeed />;
     }
     
+    if (selectedCategory === 'ai-ml') {
+      if (selectedAlgorithm === 'transformer-architecture') {
+        return <TransformerArchitecture />;
+      }
+      // For other AI/ML algorithms that aren't implemented yet
+      const category = algorithmCategories.find(cat => cat.id === selectedCategory);
+      const algorithm = category.algorithms.find(alg => alg.id === selectedAlgorithm);
+      return (
+        <div className="flex flex-col items-center justify-center h-full text-center">
+          <div className="mb-8">
+            <Brain size={64} className="mx-auto mb-4 text-purple-400" />
+            <h2 className="text-3xl font-bold text-white mb-2">{algorithm?.name || 'AI Algorithm'}</h2>
+            <p className="text-gray-400 text-lg">Advanced AI concepts made accessible</p>
+          </div>
+          <div className="bg-purple-900/30 border border-purple-700 rounded-lg p-6 max-w-md">
+            <h3 className="text-purple-300 text-lg font-semibold mb-2">Coming Soon!</h3>
+            <p className="text-purple-200 text-sm">
+              We're brewing this AI concept in our neural kitchen. Stay tuned for mind-bending visualizations!
+            </p>
+          </div>
+        </div>
+      );
+    }
+    
     // Placeholder for other algorithms
     const category = algorithmCategories.find(cat => cat.id === selectedCategory);
     return (
@@ -179,7 +216,13 @@ const AlgorithmKitchen = () => {
               return (
                 <div key={category.id}>
                   <button
-                    onClick={() => setSelectedCategory(category.id)}
+                    onClick={() => {
+                      setSelectedCategory(category.id);
+                      // Set default algorithm for AI/ML category
+                      if (category.id === 'ai-ml') {
+                        setSelectedAlgorithm('transformer-architecture');
+                      }
+                    }}
                     className={`w-full text-left p-3 rounded-lg transition-all duration-200 ${
                       isSelected 
                         ? 'bg-orange-500/20 border border-orange-500/50 text-orange-300' 
@@ -203,7 +246,7 @@ const AlgorithmKitchen = () => {
                   </button>
                   
                   {/* Algorithm List */}
-                  {isSelected && (!category.comingSoon || category.id === 'system-design') && (
+                  {isSelected && (!category.comingSoon || category.id === 'system-design' || category.id === 'ai-ml') && (
                     <div className="mt-2 ml-6 space-y-1">
                       {category.algorithms.map((algorithm) => (
                         <button
