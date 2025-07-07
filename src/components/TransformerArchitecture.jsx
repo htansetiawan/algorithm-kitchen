@@ -105,37 +105,99 @@ const TransformerArchitecture = () => {
   // Self-attention mechanism
   const computeAttention = (embeddings) => {
     const seqLen = embeddings.length;
-    const attentionWeights = [];
-    const attentionOutputs = [];
-
-    // For each position
-    for (let i = 0; i < seqLen; i++) {
-      const query = embeddings[i];
-      const weights = [];
-      
-      // Compute attention weights with all positions
-      for (let j = 0; j < seqLen; j++) {
-        const key = embeddings[j];
-        const score = dotProduct(query, key) / Math.sqrt(dHead);
-        weights.push(score);
+    
+    // Initialize Q, K, V weight matrices (simplified for demo, deterministic for consistency)
+    const createMatrix = (rows, cols, seed) => {
+      const matrix = [];
+      let rng = seed;
+      for (let i = 0; i < rows; i++) {
+        const row = [];
+        for (let j = 0; j < cols; j++) {
+          // Simple deterministic random number generator
+          rng = (rng * 9301 + 49297) % 233280;
+          const val = (rng / 233280 - 0.5) * 0.1;
+          row.push(val);
+        }
+        matrix.push(row);
       }
+      return matrix;
+    };
+
+    const WQ = createMatrix(dModel, dModel, 12345);
+    const WK = createMatrix(dModel, dModel, 23456);  
+    const WV = createMatrix(dModel, dModel, 34567);
+
+    // Step 1: Compute Q, K, V matrices
+    const queries = [];
+    const keys = [];
+    const values = [];
+
+    for (let i = 0; i < seqLen; i++) {
+      const embedding = embeddings[i];
       
-      // Apply softmax
-      const normalizedWeights = softmax(weights);
-      attentionWeights.push(normalizedWeights);
-      
-      // Compute weighted sum of values
+      // Q = X * WQ
+      const query = new Array(dModel).fill(0);
+      for (let j = 0; j < dModel; j++) {
+        for (let k = 0; k < dModel; k++) {
+          query[j] += embedding[k] * WQ[k][j];
+        }
+      }
+      queries.push(query);
+
+      // K = X * WK  
+      const key = new Array(dModel).fill(0);
+      for (let j = 0; j < dModel; j++) {
+        for (let k = 0; k < dModel; k++) {
+          key[j] += embedding[k] * WK[k][j];
+        }
+      }
+      keys.push(key);
+
+      // V = X * WV
+      const value = new Array(dModel).fill(0);
+      for (let j = 0; j < dModel; j++) {
+        for (let k = 0; k < dModel; k++) {
+          value[j] += embedding[k] * WV[k][j];
+        }
+      }
+      values.push(value);
+    }
+
+    // Step 2: Compute attention scores (Q * K^T)
+    const attentionScores = [];
+    for (let i = 0; i < seqLen; i++) {
+      const scores = [];
+      for (let j = 0; j < seqLen; j++) {
+        const score = dotProduct(queries[i], keys[j]) / Math.sqrt(dHead);
+        scores.push(score);
+      }
+      attentionScores.push(scores);
+    }
+
+    // Step 3: Apply softmax to get attention weights
+    const attentionWeights = attentionScores.map(scores => softmax(scores));
+
+    // Step 4: Compute final output (Attention * V)
+    const attentionOutputs = [];
+    for (let i = 0; i < seqLen; i++) {
       const output = new Array(dModel).fill(0);
       for (let j = 0; j < seqLen; j++) {
-        const value = embeddings[j];
         for (let k = 0; k < dModel; k++) {
-          output[k] += normalizedWeights[j] * value[k];
+          output[k] += attentionWeights[i][j] * values[j][k];
         }
       }
       attentionOutputs.push(output);
     }
 
-    return { weights: attentionWeights, outputs: attentionOutputs };
+    return { 
+      weights: attentionWeights, 
+      outputs: attentionOutputs,
+      queries: queries,
+      keys: keys, 
+      values: values,
+      attentionScores: attentionScores,
+      weightMatrices: { WQ, WK, WV }
+    };
   };
 
   // Feed-forward network (simplified)
@@ -188,10 +250,16 @@ const TransformerArchitecture = () => {
     const attention = computeAttention(embeddingsWithPos);
     steps.push({
       name: "Self-Attention",
-      description: "Compute attention weights and context",
+      description: "Compute Query, Key, Value matrices and attention",
       data: {
+        inputEmbeddings: embeddingsWithPos,
+        queries: attention.queries,
+        keys: attention.keys,
+        values: attention.values,
+        attentionScores: attention.attentionScores,
         attentionWeights: attention.weights,
-        attentionOutputs: attention.outputs
+        attentionOutputs: attention.outputs,
+        weightMatrices: attention.weightMatrices
       }
     });
 
@@ -676,16 +744,310 @@ const TransformerArchitecture = () => {
                 </div>
               </div>
 
-              {/* Mathematical Formula */}
-              <div className="bg-gradient-to-r from-indigo-900/30 to-purple-900/30 border border-indigo-500/30 rounded-lg p-4">
-                <div className="text-indigo-400 font-semibold mb-2">The Sacred Formula</div>
-                <div className="font-mono text-sm text-center">
-                  <div className="text-indigo-300">Attention(Q, K, V) = softmax(QK^T / √d_k)V</div>
-                  <div className="text-xs text-gray-400 mt-2">Where d_k is the dimension of keys (usually 64)</div>
-                </div>
-                <div className="mt-4 text-xs text-indigo-200">
-                  <strong>Translation:</strong> "How much should I pay attention to each word?" is determined by 
-                  how well my Query matches each Key, then I gather the corresponding Values.
+              {/* Interactive Mathematical Formula */}
+              <div className="bg-gradient-to-r from-indigo-900/30 to-purple-900/30 border border-indigo-500/30 rounded-lg p-6">
+                <div className="text-indigo-400 font-semibold mb-4 text-xl">🔮 The Sacred Formula: Interactive Deep Dive</div>
+                
+                <div className="space-y-6">
+                  {/* The Formula */}
+                  <div className="text-center">
+                    <div className="font-mono text-lg text-indigo-300 mb-2">
+                      Attention(Q, K, V) = softmax(QK^T / √d_k)V
+                    </div>
+                    <div className="text-sm text-gray-400">The mathematical heart of transformer attention</div>
+                  </div>
+
+                  {/* Step-by-Step Breakdown */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Left: Matrix Dimensions */}
+                    <div className="bg-gray-800 rounded-lg p-4">
+                      <h5 className="text-white font-semibold mb-3">📐 Matrix Dimensions</h5>
+                      <div className="space-y-3 text-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="text-blue-300">Input X:</span>
+                          <span className="font-mono text-blue-200">[seq_len, d_model] = [5, 64]</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-red-300">Query Q:</span>
+                          <span className="font-mono text-red-200">[seq_len, d_k] = [5, 64]</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-green-300">Key K:</span>
+                          <span className="font-mono text-green-200">[seq_len, d_k] = [5, 64]</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-purple-300">Value V:</span>
+                          <span className="font-mono text-purple-200">[seq_len, d_v] = [5, 64]</span>
+                        </div>
+                        <div className="border-t border-gray-600 pt-2">
+                          <div className="flex items-center justify-between font-semibold">
+                            <span className="text-indigo-300">Output:</span>
+                            <span className="font-mono text-indigo-200">[seq_len, d_v] = [5, 64]</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right: Why sqrt(d_k)? */}
+                    <div className="bg-gray-800 rounded-lg p-4">
+                      <h5 className="text-white font-semibold mb-3">⚡ Why √d_k?</h5>
+                      <div className="space-y-3 text-sm">
+                        <div className="text-yellow-300">
+                          <strong>Problem:</strong> Dot product QK^T grows with dimension
+                        </div>
+                        <div className="bg-gray-700 rounded p-2 font-mono text-xs">
+                          q·k = Σ(q_i × k_i) ≈ √d_k for random vectors
+                        </div>
+                        <div className="text-yellow-200">
+                          Without scaling: Large values → extreme softmax → vanishing gradients
+                        </div>
+                        <div className="text-green-300">
+                          <strong>Solution:</strong> Scale by √d_k to normalize variance
+                        </div>
+                        <div className="bg-green-800/30 rounded p-2 text-xs">
+                          This keeps gradients stable and prevents softmax saturation
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Interactive Matrix Multiplication */}
+                  <div className="bg-gray-900 rounded-lg p-6">
+                    <h5 className="text-white font-semibold mb-4">🎯 Interactive Matrix Multiplication</h5>
+                    <div className="text-sm text-gray-300 mb-4">
+                      Example with 5 tokens: ["The", "cat", "sat", "on", "mat"]
+                    </div>
+
+                    {/* Step 1: Q × K^T */}
+                    <div className="space-y-4">
+                      <div className="bg-blue-900/20 border border-blue-500/30 rounded p-4">
+                        <h6 className="text-blue-400 font-semibold mb-3">Step 1: Compute QK^T (Attention Scores)</h6>
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-center">
+                          {/* Q Matrix */}
+                          <div className="text-center">
+                            <div className="text-red-400 font-semibold mb-2">Q [5×64]</div>
+                            <div className="bg-red-900/20 rounded p-3 font-mono text-xs">
+                              <div>q₁ = [0.2, 0.1, ...] "The"</div>
+                              <div>q₂ = [0.5, -0.3, ...] "cat"</div>
+                              <div>q₃ = [0.1, 0.4, ...] "sat"</div>
+                              <div>q₄ = [-0.2, 0.2, ...] "on"</div>
+                              <div>q₅ = [0.3, -0.1, ...] "mat"</div>
+                            </div>
+                          </div>
+
+                          {/* Multiplication */}
+                          <div className="text-center">
+                            <div className="text-white font-semibold mb-2">×</div>
+                            <div className="text-green-400 font-semibold">K^T [64×5]</div>
+                            <div className="text-xs text-gray-400 mt-2">
+                              Each q_i multiplied by<br/>all k_j vectors
+                            </div>
+                          </div>
+
+                          {/* Result */}
+                          <div className="text-center">
+                            <div className="text-yellow-400 font-semibold mb-2">= Scores [5×5]</div>
+                            <div className="bg-yellow-900/20 rounded p-3">
+                              <table className="text-xs font-mono">
+                                <thead>
+                                  <tr>
+                                    <th className="p-1"></th>
+                                    <th className="p-1">T</th>
+                                    <th className="p-1">c</th>
+                                    <th className="p-1">s</th>
+                                    <th className="p-1">o</th>
+                                    <th className="p-1">m</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  <tr><td className="p-1">T:</td><td className="p-1">8.2</td><td className="p-1">3.1</td><td className="p-1">2.5</td><td className="p-1">1.8</td><td className="p-1">4.3</td></tr>
+                                  <tr><td className="p-1">c:</td><td className="p-1">3.1</td><td className="p-1">12.5</td><td className="p-1">9.2</td><td className="p-1">4.6</td><td className="p-1">7.8</td></tr>
+                                  <tr><td className="p-1">s:</td><td className="p-1">2.5</td><td className="p-1">9.2</td><td className="p-1">11.8</td><td className="p-1">8.4</td><td className="p-1">6.1</td></tr>
+                                  <tr><td className="p-1">o:</td><td className="p-1">1.8</td><td className="p-1">4.6</td><td className="p-1">8.4</td><td className="p-1">7.9</td><td className="p-1">9.3</td></tr>
+                                  <tr><td className="p-1">m:</td><td className="p-1">4.3</td><td className="p-1">7.8</td><td className="p-1">6.1</td><td className="p-1">9.3</td><td className="p-1">10.5</td></tr>
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Step 2: Scale by sqrt(d_k) */}
+                      <div className="bg-orange-900/20 border border-orange-500/30 rounded p-4">
+                        <h6 className="text-orange-400 font-semibold mb-3">Step 2: Scale by √d_k = √64 = 8</h6>
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-center">
+                          <div className="text-center">
+                            <div className="text-yellow-400 font-semibold mb-2">Scores [5×5]</div>
+                            <div className="text-xs text-gray-300">Large values can cause<br/>softmax saturation</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-white font-semibold mb-2">÷ 8</div>
+                            <div className="text-orange-400 font-semibold">Scaling Factor</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-orange-400 font-semibold mb-2">= Scaled [5×5]</div>
+                            <div className="bg-orange-900/20 rounded p-3">
+                              <table className="text-xs font-mono">
+                                <tbody>
+                                  <tr><td className="p-1">T:</td><td className="p-1">1.03</td><td className="p-1">0.39</td><td className="p-1">0.31</td><td className="p-1">0.23</td><td className="p-1">0.54</td></tr>
+                                  <tr><td className="p-1">c:</td><td className="p-1">0.39</td><td className="p-1">1.56</td><td className="p-1">1.15</td><td className="p-1">0.58</td><td className="p-1">0.98</td></tr>
+                                  <tr><td className="p-1">s:</td><td className="p-1">0.31</td><td className="p-1">1.15</td><td className="p-1">1.48</td><td className="p-1">1.05</td><td className="p-1">0.76</td></tr>
+                                  <tr><td className="p-1">o:</td><td className="p-1">0.23</td><td className="p-1">0.58</td><td className="p-1">1.05</td><td className="p-1">0.99</td><td className="p-1">1.16</td></tr>
+                                  <tr><td className="p-1">m:</td><td className="p-1">0.54</td><td className="p-1">0.98</td><td className="p-1">0.76</td><td className="p-1">1.16</td><td className="p-1">1.31</td></tr>
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Step 3: Softmax */}
+                      <div className="bg-green-900/20 border border-green-500/30 rounded p-4">
+                        <h6 className="text-green-400 font-semibold mb-3">Step 3: Apply Softmax (Row-wise)</h6>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                          <div>
+                            <div className="text-green-300 font-semibold mb-2">Before Softmax</div>
+                            <div className="text-xs text-gray-300 mb-2">Raw scaled scores</div>
+                            <div className="bg-gray-800 rounded p-2 font-mono text-xs">
+                              row 2 (cat): [0.39, 1.56, 1.15, 0.58, 0.98]
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-green-300 font-semibold mb-2">After Softmax</div>
+                            <div className="text-xs text-gray-300 mb-2">Probabilities (sum = 1.0)</div>
+                            <div className="bg-green-800/30 rounded p-2 font-mono text-xs">
+                              row 2 (cat): [0.12, 0.36, 0.25, 0.14, 0.21]
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-4">
+                          <div className="text-green-400 font-semibold mb-2">Complete Attention Matrix [5×5]</div>
+                          <div className="bg-green-900/20 rounded p-3 overflow-x-auto">
+                            <table className="text-xs font-mono w-full">
+                              <thead>
+                                <tr>
+                                  <th className="p-2 text-green-300"></th>
+                                  <th className="p-2 text-green-300">The</th>
+                                  <th className="p-2 text-green-300">cat</th>
+                                  <th className="p-2 text-green-300">sat</th>
+                                  <th className="p-2 text-green-300">on</th>
+                                  <th className="p-2 text-green-300">mat</th>
+                                  <th className="p-2 text-green-300">Sum</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr>
+                                  <td className="p-2 text-green-300 font-semibold">The</td>
+                                  <td className="p-2 bg-green-800/40">0.28</td>
+                                  <td className="p-2">0.15</td>
+                                  <td className="p-2">0.14</td>
+                                  <td className="p-2">0.13</td>
+                                  <td className="p-2">0.17</td>
+                                  <td className="p-2 text-green-400">1.00</td>
+                                </tr>
+                                <tr>
+                                  <td className="p-2 text-green-300 font-semibold">cat</td>
+                                  <td className="p-2">0.12</td>
+                                  <td className="p-2 bg-green-800/40">0.36</td>
+                                  <td className="p-2 bg-green-700/40">0.25</td>
+                                  <td className="p-2">0.14</td>
+                                  <td className="p-2">0.21</td>
+                                  <td className="p-2 text-green-400">1.00</td>
+                                </tr>
+                                <tr>
+                                  <td className="p-2 text-green-300 font-semibold">sat</td>
+                                  <td className="p-2">0.11</td>
+                                  <td className="p-2 bg-green-700/40">0.23</td>
+                                  <td className="p-2 bg-green-800/40">0.31</td>
+                                  <td className="p-2 bg-green-700/40">0.22</td>
+                                  <td className="p-2">0.16</td>
+                                  <td className="p-2 text-green-400">1.00</td>
+                                </tr>
+                                <tr>
+                                  <td className="p-2 text-green-300 font-semibold">on</td>
+                                  <td className="p-2">0.10</td>
+                                  <td className="p-2">0.14</td>
+                                  <td className="p-2 bg-green-700/40">0.22</td>
+                                  <td className="p-2 bg-green-700/40">0.21</td>
+                                  <td className="p-2 bg-green-800/40">0.24</td>
+                                  <td className="p-2 text-green-400">1.00</td>
+                                </tr>
+                                <tr>
+                                  <td className="p-2 text-green-300 font-semibold">mat</td>
+                                  <td className="p-2">0.13</td>
+                                  <td className="p-2">0.19</td>
+                                  <td className="p-2">0.15</td>
+                                  <td className="p-2 bg-green-700/40">0.24</td>
+                                  <td className="p-2 bg-green-800/40">0.29</td>
+                                  <td className="p-2 text-green-400">1.00</td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                          <div className="text-xs text-gray-400 mt-2">
+                            💡 Notice: Each row represents how much each token attends to all others
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Step 4: Multiply by V */}
+                      <div className="bg-purple-900/20 border border-purple-500/30 rounded p-4">
+                        <h6 className="text-purple-400 font-semibold mb-3">Step 4: Multiply by Values (Attention × V)</h6>
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-center">
+                          <div className="text-center">
+                            <div className="text-green-400 font-semibold mb-2">Attention [5×5]</div>
+                            <div className="text-xs text-gray-300">Probability weights<br/>from previous step</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-white font-semibold mb-2">×</div>
+                            <div className="text-purple-400 font-semibold">V [5×64]</div>
+                            <div className="text-xs text-gray-300">Value vectors for<br/>each token</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-purple-400 font-semibold mb-2">= Output [5×64]</div>
+                            <div className="bg-purple-900/20 rounded p-3 font-mono text-xs">
+                              <div>out₁ = [0.3, -0.1, ...] "The"</div>
+                              <div>out₂ = [0.6, 0.2, ...] "cat"</div>
+                              <div>out₃ = [0.4, 0.1, ...] "sat"</div>
+                              <div>out₄ = [-0.1, 0.3, ...] "on"</div>
+                              <div>out₅ = [0.2, -0.2, ...] "mat"</div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-4 bg-gray-800 rounded p-3">
+                          <div className="text-purple-300 font-semibold mb-2">🎯 Key Insight</div>
+                          <div className="text-sm text-purple-200">
+                            Each output vector is a <strong>weighted combination</strong> of all Value vectors, 
+                            where the weights come from the attention matrix. This allows each token to "gather" 
+                            relevant information from all other tokens in the sequence.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Final Summary */}
+                  <div className="bg-indigo-900/30 border border-indigo-500/30 rounded-lg p-4">
+                    <h5 className="text-indigo-400 font-semibold mb-3">🎓 Complete Understanding</h5>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div className="space-y-2">
+                        <div className="text-indigo-300 font-semibold">Input → Output Dimensions:</div>
+                        <div className="text-gray-300">• Input: 5 tokens × 64 dimensions</div>
+                        <div className="text-gray-300">• Q, K, V: All [5×64] matrices</div>
+                        <div className="text-gray-300">• Attention: [5×5] probability matrix</div>
+                        <div className="text-gray-300">• Output: 5 tokens × 64 dimensions</div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="text-indigo-300 font-semibold">Why This Works:</div>
+                        <div className="text-gray-300">• 5×5 matrix captures all token relationships</div>
+                        <div className="text-gray-300">• √d_k scaling prevents gradient vanishing</div>
+                        <div className="text-gray-300">• Softmax ensures probability distribution</div>
+                        <div className="text-gray-300">• Output preserves input dimensions</div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1364,43 +1726,112 @@ const TransformerArchitecture = () => {
       case 'Self-Attention':
         return (
           <div>
-            <h4 className="text-white font-semibold mb-4">👁️ Self-Attention Mechanism</h4>
-            <div className="space-y-4">
+            <h4 className="text-white font-semibold mb-4">👁️ Self-Attention: The Complete Journey</h4>
+            <div className="space-y-6">
               <div className="text-gray-300 text-sm">
-                Each token attends to all tokens in the sequence:
+                Self-attention computes relationships between all tokens through Query, Key, and Value transformations:
               </div>
-              
-              {/* Attention Matrix */}
-              <div className="bg-gray-800 rounded p-4">
-                <div className="text-yellow-400 font-semibold mb-3">Attention Weights Matrix</div>
+
+              {/* Step 1: Input Embeddings */}
+              <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
+                <h5 className="text-blue-400 font-semibold mb-3">📥 Step 1: Input Embeddings</h5>
+                <div className="text-blue-300 text-sm mb-3">Each token has a {dModel}-dimensional embedding vector:</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {data.inputEmbeddings.slice(0, 4).map((embedding, index) => (
+                    <div key={index} className="bg-blue-800/30 rounded p-3">
+                      <div className="text-blue-200 text-sm mb-1">
+                        "{vocabulary[transformerState[0].data.tokens[index]]}" embedding:
+                      </div>
+                      <div className="font-mono text-xs text-blue-100">
+                        [{embedding.slice(0, 6).map(v => v.toFixed(3)).join(', ')}...]
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Step 2: Q, K, V Matrices */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {/* Query Matrix */}
+                <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4">
+                  <h5 className="text-red-400 font-semibold mb-3">🔍 Step 2a: Query Matrix (Q)</h5>
+                  <div className="text-red-300 text-xs mb-3">Q = X × W_Q</div>
+                  <div className="text-red-200 text-xs mb-3">"What am I looking for?"</div>
+                  {data.queries.slice(0, 3).map((query, index) => (
+                    <div key={index} className="bg-red-800/30 rounded p-2 mb-2">
+                      <div className="text-red-200 text-xs mb-1">
+                        Q_{index} ("{vocabulary[transformerState[0].data.tokens[index]]}"):
+                      </div>
+                      <div className="font-mono text-xs text-red-100">
+                        [{query.slice(0, 4).map(v => v.toFixed(2)).join(', ')}...]
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Key Matrix */}
+                <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-4">
+                  <h5 className="text-green-400 font-semibold mb-3">🔑 Step 2b: Key Matrix (K)</h5>
+                  <div className="text-green-300 text-xs mb-3">K = X × W_K</div>
+                  <div className="text-green-200 text-xs mb-3">"What can I offer?"</div>
+                  {data.keys.slice(0, 3).map((key, index) => (
+                    <div key={index} className="bg-green-800/30 rounded p-2 mb-2">
+                      <div className="text-green-200 text-xs mb-1">
+                        K_{index} ("{vocabulary[transformerState[0].data.tokens[index]]}"):
+                      </div>
+                      <div className="font-mono text-xs text-green-100">
+                        [{key.slice(0, 4).map(v => v.toFixed(2)).join(', ')}...]
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Value Matrix */}
+                <div className="bg-purple-900/20 border border-purple-500/30 rounded-lg p-4">
+                  <h5 className="text-purple-400 font-semibold mb-3">💎 Step 2c: Value Matrix (V)</h5>
+                  <div className="text-purple-300 text-xs mb-3">V = X × W_V</div>
+                  <div className="text-purple-200 text-xs mb-3">"What information do I contain?"</div>
+                  {data.values.slice(0, 3).map((value, index) => (
+                    <div key={index} className="bg-purple-800/30 rounded p-2 mb-2">
+                      <div className="text-purple-200 text-xs mb-1">
+                        V_{index} ("{vocabulary[transformerState[0].data.tokens[index]]}"):
+                      </div>
+                      <div className="font-mono text-xs text-purple-100">
+                        [{value.slice(0, 4).map(v => v.toFixed(2)).join(', ')}...]
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Step 3: Attention Scores */}
+              <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-4">
+                <h5 className="text-yellow-400 font-semibold mb-3">⚡ Step 3: Attention Scores (Q·K^T / √d_k)</h5>
+                <div className="text-yellow-300 text-sm mb-3">
+                  Computing similarity between each Query and all Keys:
+                </div>
                 <div className="overflow-x-auto">
-                  <table className="text-xs">
+                  <table className="text-xs w-full">
                     <thead>
                       <tr>
-                        <th className="text-gray-400 p-1"></th>
-                        {data.attentionWeights[0].map((_, j) => (
-                          <th key={j} className="text-gray-400 p-1 text-center min-w-[50px]">
-                            {vocabulary[transformerState[0].data.tokens[j]]}
+                        <th className="text-yellow-400 p-2 text-left">Query →</th>
+                        {data.attentionScores[0].map((_, j) => (
+                          <th key={j} className="text-yellow-300 p-2 text-center min-w-[60px]">
+                            Key_{j}<br/>"{vocabulary[transformerState[0].data.tokens[j]]}"
                           </th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {data.attentionWeights.map((weights, i) => (
+                      {data.attentionScores.map((scores, i) => (
                         <tr key={i}>
-                          <td className="text-gray-400 p-1 font-semibold">
-                            {vocabulary[transformerState[0].data.tokens[i]]}
+                          <td className="text-yellow-400 p-2 font-semibold">
+                            Q_{i} "{vocabulary[transformerState[0].data.tokens[i]]}"
                           </td>
-                          {weights.map((weight, j) => (
-                            <td key={j} className="p-1 text-center">
-                              <div 
-                                className="rounded text-xs px-1"
-                                style={{
-                                  backgroundColor: `rgba(255, 255, 0, ${weight})`,
-                                  color: weight > 0.5 ? 'black' : 'white'
-                                }}
-                              >
-                                {weight.toFixed(2)}
+                          {scores.map((score, j) => (
+                            <td key={j} className="p-2 text-center">
+                              <div className="bg-yellow-800/50 rounded px-2 py-1 text-yellow-100">
+                                {score.toFixed(2)}
                               </div>
                             </td>
                           ))}
@@ -1411,20 +1842,112 @@ const TransformerArchitecture = () => {
                 </div>
               </div>
 
-              {/* Attention Outputs */}
-              <div className="bg-gray-800 rounded p-4">
-                <div className="text-yellow-400 font-semibold mb-3">Attention Outputs</div>
+              {/* Step 4: Softmax (Attention Weights) */}
+              <div className="bg-orange-900/20 border border-orange-500/30 rounded-lg p-4">
+                <h5 className="text-orange-400 font-semibold mb-3">🎯 Step 4: Softmax → Attention Weights</h5>
+                <div className="text-orange-300 text-sm mb-3">
+                  Converting scores to probabilities (each row sums to 1.0):
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="text-xs w-full">
+                    <thead>
+                      <tr>
+                        <th className="text-orange-400 p-2 text-left">Token →</th>
+                        {data.attentionWeights[0].map((_, j) => (
+                          <th key={j} className="text-orange-300 p-2 text-center min-w-[60px]">
+                            "{vocabulary[transformerState[0].data.tokens[j]]}"
+                          </th>
+                        ))}
+                        <th className="text-orange-300 p-2 text-center">Sum</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.attentionWeights.map((weights, i) => (
+                        <tr key={i}>
+                          <td className="text-orange-400 p-2 font-semibold">
+                            "{vocabulary[transformerState[0].data.tokens[i]]}"
+                          </td>
+                          {weights.map((weight, j) => (
+                            <td key={j} className="p-2 text-center">
+                              <div 
+                                className="rounded px-2 py-1 text-xs font-semibold"
+                                style={{
+                                  backgroundColor: `rgba(251, 146, 60, ${weight})`,
+                                  color: weight > 0.5 ? 'black' : 'white'
+                                }}
+                              >
+                                {(weight * 100).toFixed(1)}%
+                              </div>
+                            </td>
+                          ))}
+                          <td className="p-2 text-center text-orange-300 text-xs">
+                            {weights.reduce((sum, w) => sum + w, 0).toFixed(3)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Step 5: Final Output */}
+              <div className="bg-cyan-900/20 border border-cyan-500/30 rounded-lg p-4">
+                <h5 className="text-cyan-400 font-semibold mb-3">🎨 Step 5: Final Output (Attention × V)</h5>
+                <div className="text-cyan-300 text-sm mb-3">
+                  Weighted combination of Value vectors using attention weights:
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {data.attentionOutputs.map((output, index) => (
-                    <div key={index} className="bg-gray-900 rounded p-3">
-                      <div className="text-yellow-300 text-sm mb-1">
-                        "{vocabulary[transformerState[0].data.tokens[index]]}" output:
+                    <div key={index} className="bg-cyan-800/30 rounded p-3">
+                      <div className="text-cyan-200 text-sm mb-2">
+                        Final representation for "{vocabulary[transformerState[0].data.tokens[index]]}":
                       </div>
-                      <div className="font-mono text-xs text-yellow-200">
+                      <div className="font-mono text-xs text-cyan-100 mb-2">
                         [{output.slice(0, 6).map(v => v.toFixed(3)).join(', ')}...]
+                      </div>
+                      <div className="text-cyan-300 text-xs">
+                        Influenced most by: {data.attentionWeights[index]
+                          .map((weight, i) => ({weight, token: vocabulary[transformerState[0].data.tokens[i]]}))
+                          .sort((a, b) => b.weight - a.weight)
+                          .slice(0, 2)
+                          .map(item => `"${item.token}" (${(item.weight * 100).toFixed(1)}%)`)
+                          .join(', ')
+                        }
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+
+              {/* Mathematical Summary */}
+              <div className="bg-gray-800 border border-gray-600 rounded-lg p-4">
+                <h5 className="text-white font-semibold mb-3">📐 Mathematical Summary</h5>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div className="space-y-2">
+                    <div className="text-gray-300">
+                      <span className="text-red-400 font-bold">Q</span> = X × W_Q 
+                      <span className="text-gray-500 ml-2">(Query: "What to look for")</span>
+                    </div>
+                    <div className="text-gray-300">
+                      <span className="text-green-400 font-bold">K</span> = X × W_K
+                      <span className="text-gray-500 ml-2">(Key: "What to offer")</span>
+                    </div>
+                    <div className="text-gray-300">
+                      <span className="text-purple-400 font-bold">V</span> = X × W_V
+                      <span className="text-gray-500 ml-2">(Value: "What information")</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="text-gray-300">
+                      Scores = <span className="text-red-400 font-bold">Q</span> · <span className="text-green-400 font-bold">K</span>ᵀ / √d_k
+                    </div>
+                    <div className="text-gray-300">
+                      Attention = softmax(Scores)
+                    </div>
+                    <div className="text-gray-300">
+                      Output = Attention × <span className="text-purple-400 font-bold">V</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
