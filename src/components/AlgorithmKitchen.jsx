@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { ChefHat, ArrowUpDown, Search, GitBranch, Shuffle, Target, Zap } from 'lucide-react';
+import { ChefHat, ArrowUpDown, Search, GitBranch, Shuffle, Target, Zap, Building2 } from 'lucide-react';
 import SortingVisualizer from './SortingVisualizer';
+import InstagramNewsFeed from './InstagramNewsFeed';
 
 const AlgorithmKitchen = () => {
   const [selectedCategory, setSelectedCategory] = useState('sorting');
@@ -18,6 +19,15 @@ const AlgorithmKitchen = () => {
         { id: 'insertion-sort', name: 'Insertion Sort', difficulty: 'Easy' },
         { id: 'merge-sort', name: 'Merge Sort', difficulty: 'Medium' },
         { id: 'quick-sort', name: 'Quick Sort', difficulty: 'Medium' }
+      ]
+    },
+    {
+      id: 'system-design',
+      name: 'System Design',
+      icon: Building2,
+      description: 'Design large-scale distributed systems',
+      algorithms: [
+        { id: 'instagram-news-feed', name: 'Instagram News Feed', difficulty: 'Hard' }
       ]
     },
     {
@@ -109,6 +119,10 @@ const AlgorithmKitchen = () => {
       return <SortingVisualizer selectedAlgorithm={algorithmKey} />;
     }
     
+    if (selectedCategory === 'system-design') {
+      return <InstagramNewsFeed />;
+    }
+    
     // Placeholder for other algorithms
     const category = algorithmCategories.find(cat => cat.id === selectedCategory);
     return (
@@ -179,7 +193,7 @@ const AlgorithmKitchen = () => {
                   </button>
                   
                   {/* Algorithm List */}
-                  {isSelected && !category.comingSoon && (
+                  {isSelected && (!category.comingSoon || category.id === 'system-design') && (
                     <div className="mt-2 ml-6 space-y-1">
                       {category.algorithms.map((algorithm) => (
                         <button

@@ -239,21 +239,6 @@ const SortingVisualizer = ({ selectedAlgorithm = 'bubble' }) => {
     return Math.max((value / 320) * 100, 5);
   };
 
-  // Helper for auxiliary bar color (merge sort only)
-  const getAuxBarColor = (auxIndex) => {
-    const step = sortingSteps[stepIndex - 1] || {};
-    // Highlight the bar being copied back
-    if (step.copyBack === (step.mergeSection ? step.mergeSection[auxIndex] : -1)) {
-      return 'bg-yellow-400'; // Copying back
-    }
-    // Highlight as part of the merging section
-    if (step.mergeSection && step.mergeSection.includes(step.mergeSection[auxIndex])) {
-      return 'bg-lime-400'; // Merging
-    }
-    // Default for aux array
-    return 'bg-gray-500';
-  };
-
   return (
     <div className="h-full bg-gray-900 text-white p-6">
       <div className="max-w-7xl mx-auto h-full flex flex-col">
