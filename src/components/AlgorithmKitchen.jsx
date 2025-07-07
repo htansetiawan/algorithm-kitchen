@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { ChefHat, ArrowUpDown, Search, GitBranch, Shuffle, Target, Zap, Building2 } from 'lucide-react';
 import SortingVisualizer from './SortingVisualizer';
 import InstagramNewsFeed from './InstagramNewsFeed';
+import TinyUrlSystem from './TinyUrlSystem';
+import DocumentPartitioningSystem from './DocumentPartitioningSystem';
 
 const AlgorithmKitchen = () => {
   const [selectedCategory, setSelectedCategory] = useState('sorting');
@@ -27,7 +29,9 @@ const AlgorithmKitchen = () => {
       icon: Building2,
       description: 'Design large-scale distributed systems',
       algorithms: [
-        { id: 'instagram-news-feed', name: 'Instagram News Feed', difficulty: 'Hard' }
+        { id: 'instagram-news-feed', name: 'Instagram News Feed', difficulty: 'Hard' },
+        { id: 'tinyurl-system', name: 'TinyURL System', difficulty: 'Hard' },
+        { id: 'document-partitioning', name: 'Document Partitioning & Consistent Hashing', difficulty: 'Hard' }
       ]
     },
     {
@@ -120,6 +124,12 @@ const AlgorithmKitchen = () => {
     }
     
     if (selectedCategory === 'system-design') {
+      if (selectedAlgorithm === 'tinyurl-system') {
+        return <TinyUrlSystem />;
+      }
+      if (selectedAlgorithm === 'document-partitioning') {
+        return <DocumentPartitioningSystem />;
+      }
       return <InstagramNewsFeed />;
     }
     

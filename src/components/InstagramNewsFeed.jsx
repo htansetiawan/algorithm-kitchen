@@ -8,7 +8,8 @@ import {
   Clock, 
   Image,
   ArrowUp,
-  Eye
+  Eye,
+  Users
 } from 'lucide-react';
 
 const InstagramNewsFeed = () => {
@@ -626,35 +627,46 @@ const InstagramNewsFeed = () => {
   };
 
   return (
-    <div className="flex h-full">
-      {/* Navigation */}
-      <div className="w-64 bg-gray-800 border-r border-gray-700 p-4">
-        <div className="space-y-2">
-          {sections.map((section) => {
-            const Icon = section.icon;
-            return (
-              <button
-                key={section.id}
-                onClick={() => setActiveSection(section.id)}
-                className={`w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors ${
-                  activeSection === section.id
-                    ? 'bg-orange-500/20 border border-orange-500/50 text-orange-300'
-                    : 'hover:bg-gray-700 text-gray-300'
-                }`}
-              >
-                <Icon size={20} />
-                <span className="font-medium">{section.name}</span>
-              </button>
-            );
-          })}
+    <div className="min-h-screen bg-gray-900 text-white">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-pink-900 to-purple-900 p-6 border-b border-gray-700">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="p-3 bg-pink-600 rounded-lg">
+              <Users size={32} className="text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold">Instagram News Feed System</h1>
+              <p className="text-pink-200 text-lg">Building personalized social feeds at planetary scale</p>
+            </div>
+          </div>
+          
+          {/* Navigation */}
+          <nav className="flex gap-2 overflow-x-auto">
+            {sections.map((section) => {
+              const Icon = section.icon;
+              return (
+                <button
+                  key={section.id}
+                  onClick={() => setActiveSection(section.id)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg whitespace-nowrap transition-all ${
+                    activeSection === section.id
+                      ? 'bg-white/20 text-white'
+                      : 'text-pink-200 hover:bg-white/10 hover:text-white'
+                  }`}
+                >
+                  <Icon size={16} />
+                  {section.name}
+                </button>
+              );
+            })}
+          </nav>
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-4xl mx-auto">
-          {renderContent()}
-        </div>
+      <div className="max-w-6xl mx-auto p-6">
+        {renderContent()}
       </div>
     </div>
   );
