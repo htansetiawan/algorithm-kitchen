@@ -5,6 +5,7 @@ import InstagramNewsFeed from './InstagramNewsFeed';
 import TinyUrlSystem from './TinyUrlSystem';
 import DocumentPartitioningSystem from './DocumentPartitioningSystem';
 import TransformerArchitecture from './TransformerArchitecture';
+import LLMTraining from './LLMTraining';
 
 const AlgorithmKitchen = () => {
   const [selectedCategory, setSelectedCategory] = useState('sorting');
@@ -42,6 +43,7 @@ const AlgorithmKitchen = () => {
       description: 'Understand the intelligence behind modern AI systems',
       algorithms: [
         { id: 'transformer-architecture', name: 'Transformer Architecture', difficulty: 'Hard' },
+        { id: 'llm-training', name: 'LLM Training', difficulty: 'Hard' },
         { id: 'neural-networks', name: 'Neural Networks', difficulty: 'Medium' },
         { id: 'cnn-fundamentals', name: 'Convolutional Neural Networks', difficulty: 'Hard' },
         { id: 'rnn-lstm', name: 'RNNs & LSTMs', difficulty: 'Hard' }
@@ -149,6 +151,9 @@ const AlgorithmKitchen = () => {
     if (selectedCategory === 'ai-ml') {
       if (selectedAlgorithm === 'transformer-architecture') {
         return <TransformerArchitecture />;
+      }
+      if (selectedAlgorithm === 'llm-training') {
+        return <LLMTraining />;
       }
       // For other AI/ML algorithms that aren't implemented yet
       const category = algorithmCategories.find(cat => cat.id === selectedCategory);
